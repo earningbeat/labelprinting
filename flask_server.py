@@ -76,19 +76,21 @@ def get_items():
 
     df, _ = fetch_data_from_github()  # ✅ 두 개의 반환값 중 df만 가져옴
 
-    if df is None:
+    if df is None or df.empty:
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
     try:
-        # ✅ 거래처가 존재하는지 확인
+        # ✅ A열이 올바르게 로드되었는지 확인 (디버깅 로그)
+        print(f"🔍 [DEBUG] 데이터프레임 첫 번째 열 (A열) 확인:\n{df.iloc[:, 0].head()}")
+
+        # ✅ A열(첫 번째 열)을 강제로 문자열로 변환하여 가져오기
+        item_numbers = df.iloc[1:, 0].astype(str).fillna("번호없음").tolist()
+
+        # ✅ 거래처 확인
         if client not in df.iloc[0].values:
             return jsonify({"error": f"거래처 '{client}'가 존재하지 않습니다."}), 404
 
-        # ✅ 거래처의 열 인덱스 찾기
         column_index = df.iloc[0][df.iloc[0] == client].index[0]
-
-        # ✅ A열(첫 번째 열)에서 품목번호 가져오기 (모든 거래처 공통)
-        item_numbers = df.iloc[1:, 0].dropna().astype(str).tolist()  
 
         # ✅ 해당 거래처의 품목명 가져오기
         items = df.iloc[1:, column_index].dropna().tolist()
@@ -105,6 +107,7 @@ def get_items():
     except Exception as e:
         print(f"❌ [DEBUG] get_items() 오류: {e}")  # ✅ 디버깅 로그 추가
         return jsonify({"error": f"서버 내부 오류 발생: {str(e)}"}), 500
+
 
 
 
