@@ -74,34 +74,30 @@ def get_items():
     if not client:
         return jsonify({"error": "거래처명이 필요합니다."}), 400
 
-    # ✅ 안전한 호출: 튜플인지 확인 후 처리
-    result = fetch_data_from_github()
-
-    if isinstance(result, tuple) and len(result) == 2:
-        df, _ = result  # ✅ 두 개의 값이 반환될 경우 정상 처리
-    elif isinstance(result, pd.DataFrame):  
-        df = result  # ✅ 만약 `fetch_data_from_github()`가 df만 반환하는 경우 처리
-    else:
-        return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
+    df, _ = fetch_data_from_github()  # ✅ 두 개의 반환값 중 df만 가져옴
 
     if df is None:
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
     try:
+        # ✅ 거래처가 존재하는지 확인
         if client not in df.iloc[0].values:
             return jsonify({"error": f"거래처 '{client}'가 존재하지 않습니다."}), 404
 
+        # ✅ 거래처의 열 인덱스 찾기
         column_index = df.iloc[0][df.iloc[0] == client].index[0]
 
-        # ✅ 품목명과 품목번호 가져오기
-        items = df.iloc[1:, column_index].dropna().tolist()
-        item_numbers = df.iloc[1:, column_index + 1].dropna().tolist()
+        # ✅ A열(첫 번째 열)에서 품목번호 가져오기 (모든 거래처 공통)
+        item_numbers = df.iloc[1:, 0].dropna().astype(str).tolist()  
 
-        # ✅ 리스트 길이 맞추기 (품목번호가 없는 경우 대비)
+        # ✅ 해당 거래처의 품목명 가져오기
+        items = df.iloc[1:, column_index].dropna().tolist()
+
+        # ✅ 리스트 길이 맞추기 (품목번호 부족 시 "번호없음" 추가)
         if len(item_numbers) < len(items):
             item_numbers.extend(["번호없음"] * (len(items) - len(item_numbers)))
 
-        # ✅ "상품번호 - 품목명" 형식으로 반환
+        # ✅ 품목번호 - 품목명 형식으로 반환
         items_with_numbers = [f"{num} - {name}" for num, name in zip(item_numbers, items)]
 
         return jsonify(items_with_numbers)
@@ -109,6 +105,7 @@ def get_items():
     except Exception as e:
         print(f"❌ [DEBUG] get_items() 오류: {e}")  # ✅ 디버깅 로그 추가
         return jsonify({"error": f"서버 내부 오류 발생: {str(e)}"}), 500
+
 
 
 # ✅ label.xlsx의 마지막 수정 시간 반환 (GitHub API 기반)
