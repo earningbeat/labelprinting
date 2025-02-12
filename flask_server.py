@@ -51,13 +51,21 @@ def get_last_modified_from_github():
 # ✅ 거래처 목록 반환
 @app.route('/get_clients', methods=['GET'])
 def get_clients():
-    df = fetch_data_from_github()
-    
+    result = fetch_data_from_github()
+
+    if isinstance(result, tuple) and len(result) == 2:
+        df, _ = result  # ✅ 두 개의 값을 반환할 경우 정상적으로 분리
+    elif isinstance(result, pd.DataFrame):  
+        df = result  # ✅ 만약 `fetch_data_from_github()`가 df만 반환하는 경우 처리
+    else:
+        return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
+
     if df is None:
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
-    clients = df.iloc[0].dropna().tolist()  # 첫 번째 행에서 거래처명 추출
+    clients = df.iloc[0].dropna().tolist()  # ✅ 이제 정상적으로 작동함
     return jsonify(clients)
+
 
 # ✅ 특정 거래처의 품목 목록 반환
 @app.route('/get_items', methods=['GET'])
