@@ -19,15 +19,18 @@ GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/com
 
 # GitHub에서 엑셀 데이터 가져오기
 def fetch_data_from_github():
-    """GitHub에서 엑셀 데이터를 가져와 DataFrame으로 변환"""
     response = requests.get(GITHUB_FILE_URL)
-    
+
     if response.status_code == 200:
         excel_data = io.BytesIO(response.content)
         df = pd.read_excel(excel_data, engine='openpyxl', header=None)
-        return df
+
+        # GitHub의 헤더 정보에서 'Last-Modified' 값 가져오기
+        last_modified = response.headers.get('Last-Modified', "Unknown")
+
+        return df, last_modified  # ✅ 여기서 두 개의 값을 반환하는지 확인
     else:
-        return None
+        return None, None  # ✅ 실패 시 두 개의 값을 반환해야 오류 안 남
 
 # GitHub API를 사용하여 label.xlsx 파일의 마지막 수정 날짜 가져오기
 def get_last_modified_from_github():
@@ -59,24 +62,38 @@ def get_items():
     if not client:
         return jsonify({"error": "거래처명이 필요합니다."}), 400
 
-    df, _ = fetch_data_from_github()
-    
+    result = fetch_data_from_github()  # ✅ 함수 호출
+
+    # ✅ 반환값이 한 개인지 두 개인지 확인하여 처리
+    if isinstance(result, tuple):  # ✅ 두 개의 값이 반환되는 경우
+        df, _ = result
+    else:  # ✅ 하나의 값만 반환된 경우 (예: df만 반환됨)
+        df = result
+
     if df is None:
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
     try:
-        column_index = df.iloc[0][df.iloc[0] == client].index[0]  # 거래처 찾기
-    except IndexError:
-        return jsonify({"error": "해당 거래처가 존재하지 않습니다."}), 404
+        if client not in df.iloc[0].values:
+            return jsonify({"error": f"거래처 '{client}'가 존재하지 않습니다."}), 404
 
-    # ✅ 품목번호와 품목명을 함께 추출하여 리스트 생성
-    items = df.iloc[1:, column_index].dropna().tolist()
-    item_numbers = df.iloc[1:, column_index + 1].dropna().tolist()  # 다음 열에 있는 품목번호 가져오기
-    
-    # 품목번호 - 품목명 조합하여 새로운 리스트 생성
-    items_with_numbers = [f"{num} - {name}" for num, name in zip(item_numbers, items)]
+        column_index = df.iloc[0][df.iloc[0] == client].index[0]
 
-    return jsonify(items_with_numbers)  # ✅ "상품번호 - 품목명" 형식으로 반환
+        # ✅ 품목명과 품목번호 가져오기
+        items = df.iloc[1:, column_index].dropna().tolist()
+        item_numbers = df.iloc[1:, column_index + 1].dropna().tolist()
+
+        # ✅ 리스트 길이 맞추기 (품목번호가 없는 경우 대비)
+        if len(item_numbers) < len(items):
+            item_numbers.extend(["번호없음"] * (len(items) - len(item_numbers)))
+
+        # ✅ "상품번호 - 품목명" 형식으로 반환
+        items_with_numbers = [f"{num} - {name}" for num, name in zip(item_numbers, items)]
+
+        return jsonify(items_with_numbers)
+
+    except Exception as e:
+        return jsonify({"error": f"서버 내부 오류 발생: {str(e)}"}), 500
 
 # ✅ label.xlsx의 마지막 수정 시간 반환 (GitHub API 기반)
 @app.route('/get_last_modified', methods=['GET'])
