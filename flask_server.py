@@ -28,9 +28,13 @@ def fetch_data_from_github():
         # GitHub의 헤더 정보에서 'Last-Modified' 값 가져오기
         last_modified = response.headers.get('Last-Modified', "Unknown")
 
-        return df, last_modified  # ✅ 여기서 두 개의 값을 반환하는지 확인
+        print(f"🔍 [DEBUG] fetch_data_from_github() 반환값 확인: df type: {type(df)}, last_modified: {last_modified}")
+        return df, last_modified  # ✅ 두 개의 값 반환
+
     else:
-        return None, None  # ✅ 실패 시 두 개의 값을 반환해야 오류 안 남
+        print("❌ [DEBUG] fetch_data_from_github() 실패 - None 반환")
+        return None, None  # ✅ 실패 시에도 두 개의 값 반환
+
 
 # GitHub API를 사용하여 label.xlsx 파일의 마지막 수정 날짜 가져오기
 def get_last_modified_from_github():
@@ -62,13 +66,15 @@ def get_items():
     if not client:
         return jsonify({"error": "거래처명이 필요합니다."}), 400
 
-    result = fetch_data_from_github()  # ✅ 함수 호출
+    # ✅ 안전한 호출: 튜플인지 확인 후 처리
+    result = fetch_data_from_github()
 
-    # ✅ 반환값이 한 개인지 두 개인지 확인하여 처리
-    if isinstance(result, tuple):  # ✅ 두 개의 값이 반환되는 경우
-        df, _ = result
-    else:  # ✅ 하나의 값만 반환된 경우 (예: df만 반환됨)
-        df = result
+    if isinstance(result, tuple) and len(result) == 2:
+        df, _ = result  # ✅ 두 개의 값이 반환될 경우 정상 처리
+    elif isinstance(result, pd.DataFrame):  
+        df = result  # ✅ 만약 `fetch_data_from_github()`가 df만 반환하는 경우 처리
+    else:
+        return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
     if df is None:
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
@@ -93,7 +99,9 @@ def get_items():
         return jsonify(items_with_numbers)
 
     except Exception as e:
+        print(f"❌ [DEBUG] get_items() 오류: {e}")  # ✅ 디버깅 로그 추가
         return jsonify({"error": f"서버 내부 오류 발생: {str(e)}"}), 500
+
 
 # ✅ label.xlsx의 마지막 수정 시간 반환 (GitHub API 기반)
 @app.route('/get_last_modified', methods=['GET'])
