@@ -59,18 +59,24 @@ def get_items():
     if not client:
         return jsonify({"error": "거래처명이 필요합니다."}), 400
 
-    df = fetch_data_from_github()
+    df, _ = fetch_data_from_github()
     
     if df is None:
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
     try:
-        column_index = df.iloc[0][df.iloc[0] == client].index[0]
+        column_index = df.iloc[0][df.iloc[0] == client].index[0]  # 거래처 찾기
     except IndexError:
         return jsonify({"error": "해당 거래처가 존재하지 않습니다."}), 404
 
+    # ✅ 품목번호와 품목명을 함께 추출하여 리스트 생성
     items = df.iloc[1:, column_index].dropna().tolist()
-    return jsonify(items)
+    item_numbers = df.iloc[1:, column_index + 1].dropna().tolist()  # 다음 열에 있는 품목번호 가져오기
+    
+    # 품목번호 - 품목명 조합하여 새로운 리스트 생성
+    items_with_numbers = [f"{num} - {name}" for num, name in zip(item_numbers, items)]
+
+    return jsonify(items_with_numbers)  # ✅ "상품번호 - 품목명" 형식으로 반환
 
 # ✅ label.xlsx의 마지막 수정 시간 반환 (GitHub API 기반)
 @app.route('/get_last_modified', methods=['GET'])
