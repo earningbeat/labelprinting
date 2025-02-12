@@ -83,8 +83,15 @@ def get_items():
         # ✅ A열이 올바르게 로드되었는지 확인 (디버깅 로그)
         print(f"🔍 [DEBUG] 데이터프레임 첫 번째 열 (A열) 확인:\n{df.iloc[:, 0].head()}")
 
-        # ✅ A열(첫 번째 열)을 강제로 문자열로 변환하여 가져오기
-        item_numbers = df.iloc[1:, 0].astype(str).fillna("번호없음").tolist()
+        # ✅ A열(첫 번째 열) 품목번호 가져오기 (소수점 없이 정수 처리)
+        item_numbers = (
+            df.iloc[1:, 0]  # 첫 번째 열 가져오기
+            .dropna()  # 빈 값 제거
+            .astype(float)  # 실수로 변환 (혹시 소수점이 있다면)
+            .astype(int)  # 정수로 변환하여 소수점 제거
+            .astype(str)  # 문자열로 변환
+            .tolist()  # 리스트 변환
+        )
 
         # ✅ 거래처 확인
         if client not in df.iloc[0].values:
