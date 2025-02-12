@@ -9,20 +9,26 @@ app = Flask(__name__)
 # GitHub Raw 파일 URL (본인 저장소 URL로 변경)
 GITHUB_FILE_URL = "https://raw.githubusercontent.com/earningbeat/labelprinting/main/data/label.xlsx"
 
-# GitHub의 엑셀 데이터 가져오기
+# GitHub에서 엑셀 데이터 가져오기 + 마지막 수정 시간 확인
 def fetch_data_from_github():
     response = requests.get(GITHUB_FILE_URL)
+    
     if response.status_code == 200:
         excel_data = io.BytesIO(response.content)
         df = pd.read_excel(excel_data, engine='openpyxl', header=None)
-        return df
+        
+        # GitHub의 헤더 정보에서 'Last-Modified' 값 가져오기
+        last_modified = response.headers.get('Last-Modified', "Unknown")
+        
+        return df, last_modified
     else:
-        return None
+        return None, None
 
 # 거래처 목록 반환
 @app.route('/get_clients', methods=['GET'])
 def get_clients():
-    df = fetch_data_from_github()
+    df, _ = fetch_data_from_github()
+    
     if df is None:
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
@@ -36,7 +42,8 @@ def get_items():
     if not client:
         return jsonify({"error": "거래처명이 필요합니다."}), 400
 
-    df = fetch_data_from_github()
+    df, _ = fetch_data_from_github()
+    
     if df is None:
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
@@ -47,6 +54,16 @@ def get_items():
 
     items = df.iloc[1:, column_index].dropna().tolist()
     return jsonify(items)
+
+# ✅ label.xlsx의 마지막 수정 시간 반환
+@app.route('/get_last_modified', methods=['GET'])
+def get_last_modified():
+    _, last_modified = fetch_data_from_github()
+    
+    if last_modified is None:
+        return jsonify({"error": "GitHub에서 수정 시간을 가져올 수 없습니다."}), 500
+    
+    return jsonify({"last_modified": last_modified})
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
