@@ -80,33 +80,20 @@ def get_items():
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
     try:
-        # ✅ A열이 올바르게 로드되었는지 확인 (디버깅 로그)
-        print(f"🔍 [DEBUG] 데이터프레임 첫 번째 열 (A열) 확인:\n{df.iloc[:, 0].head()}")
+        print(f"🔍 [DEBUG] 데이터프레임 첫 번째 열 (A열) 확인:\n{df.iloc[:, 0].head()}")  # Debug first column
 
-        # ✅ A열(첫 번째 열) 품목번호 가져오기 (소수점 없이 정수 처리)
-        item_numbers = (
-            df.iloc[1:, 0]  # 첫 번째 열 가져오기
-            .dropna()  # 빈 값 제거
-            .astype(float)  # 실수로 변환 (혹시 소수점이 있다면)
-            .astype(int)  # 정수로 변환하여 소수점 제거
-            .astype(str)  # 문자열로 변환
-            .tolist()  # 리스트 변환
-        )
-
-        # ✅ 거래처 확인
+        # Check if client exists in the columns
         if client not in df.iloc[0].values:
             return jsonify({"error": f"거래처 '{client}'가 존재하지 않습니다."}), 404
 
         column_index = df.iloc[0][df.iloc[0] == client].index[0]
 
-        # ✅ 해당 거래처의 품목명 가져오기
+        item_numbers = df.iloc[1:, 0].dropna().astype(str).tolist()  # Convert 품목번호 to string
         items = df.iloc[1:, column_index].dropna().tolist()
 
-        # ✅ 리스트 길이 맞추기 (품목번호 부족 시 "번호없음" 추가)
         if len(item_numbers) < len(items):
             item_numbers.extend(["번호없음"] * (len(items) - len(item_numbers)))
 
-        # ✅ 품목번호 - 품목명 형식으로 반환
         items_with_numbers = [f"{num} - {name}" for num, name in zip(item_numbers, items)]
 
         return jsonify(items_with_numbers)
