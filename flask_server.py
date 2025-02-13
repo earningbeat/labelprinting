@@ -68,7 +68,7 @@ def get_clients():
 
 
 # ✅ 특정 거래처의 품목 목록 반환
-@@app.route('/get_items', methods=['GET'])
+@app.route('/get_items', methods=['GET'])
 def get_items():
     client = request.args.get('client')
     if not client:
