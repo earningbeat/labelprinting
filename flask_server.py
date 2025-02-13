@@ -68,34 +68,47 @@ def get_clients():
 
 
 # ✅ 특정 거래처의 품목 목록 반환
-@app.route('/get_items', methods=['GET'])
+@@app.route('/get_items', methods=['GET'])
 def get_items():
     client = request.args.get('client')
     if not client:
         return jsonify({"error": "거래처명이 필요합니다."}), 400
 
-    df, _ = fetch_data_from_github()  # ✅ 두 개의 반환값 중 df만 가져옴
+    df, _ = fetch_data_from_github()  # ✅ 최신 엑셀 데이터 가져오기
 
     if df is None or df.empty:
         return jsonify({"error": "데이터를 가져올 수 없습니다."}), 500
 
     try:
-        print(f"🔍 [DEBUG] 데이터프레임 첫 번째 열 (A열) 확인:\n{df.iloc[:, 0].head()}")  # Debug first column
+        # ✅ A열이 올바르게 로드되었는지 확인 (디버깅 로그)
+        print(f"🔍 [DEBUG] 데이터프레임 첫 번째 열 (A열) 확인:\n{df.iloc[:, 0].head()}")
 
-        # Check if client exists in the columns
+        # ✅ A열(첫 번째 열) 품목번호 가져오기 (소수점 없이 정수 처리)
+        item_numbers = (
+            df.iloc[1:, 0]  # 첫 번째 열 가져오기
+            .dropna()  # 빈 값 제거
+            .astype(float)  # 실수 변환 (혹시 소수점이 있다면)
+            .astype(int)  # 정수 변환하여 소수점 제거
+            .tolist()  # 리스트 변환
+        )
+
+        # ✅ 거래처 확인
         if client not in df.iloc[0].values:
             return jsonify({"error": f"거래처 '{client}'가 존재하지 않습니다."}), 404
 
         column_index = df.iloc[0][df.iloc[0] == client].index[0]
 
-        item_numbers = df.iloc[1:, 0].dropna().astype(str).tolist()  # Convert 품목번호 to string
-        items = df.iloc[1:, column_index].dropna().tolist()
+        # ✅ 해당 거래처의 품목명 가져오기
+        items = df.iloc[1:, column_index].dropna().astype(str).tolist()
 
+        # ✅ 리스트 길이 맞추기 (품목번호 부족 시 "번호없음" 추가)
         if len(item_numbers) < len(items):
             item_numbers.extend(["번호없음"] * (len(items) - len(item_numbers)))
 
+        # ✅ 품목번호 - 품목명 형식으로 반환
         items_with_numbers = [f"{num} - {name}" for num, name in zip(item_numbers, items)]
 
+        print(f"✅ [DEBUG] '{client}'의 품목 목록 반환: {len(items_with_numbers)}개")
         return jsonify(items_with_numbers)
 
     except Exception as e:
